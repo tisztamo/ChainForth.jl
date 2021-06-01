@@ -2,33 +2,19 @@ module Forth
 
 export VM, interpreter, execute
 
-struct LiteralParser
-    out::IO
-    stack::Vector{Any}
-end
+struct LiteralParser end
 
-function what(out)
-    print(out, "?")
-end
-
-function _interpret(parser::LiteralParser, wordstr)
+function codeof(::LiteralParser, wordstr)
     wordstr == "" && return false
     parsed = tryparse(Float64, wordstr)
     if isnothing(parsed)
-        what(parser.out)
-        return false
-    end
-    push!(parser.stack, parsed)
-    return true
-end
-
-function codeof(parser::LiteralParser, wordstr) 
-    if _interpret(parser, wordstr)
-        return pop!(parser.stack)
-    else
         return nothing
     end
+    return parsed
 end
+
+printerr(out, err) = return print(out, err)
+what(out) = return printerr(out, "?")
 
 struct VM
     super::LiteralParser
@@ -38,12 +24,14 @@ struct VM
     mode::Nothing
     VM(out = stdout) = begin
         stack = []
-        return new(LiteralParser(out, stack), stack, Dict(), out, nothing)
+        return new(LiteralParser(), stack, Dict(), out, nothing)
     end
 end
 
-struct Word
+mutable struct Word
     code::Union{Function, Vector, Number}
+    immediate::Bool
+    Word(code = [], immediate = false) = new(code, immediate)
 end
 
 @enum EngineMode MODE_INTERPRET=1 MODE_COMPILE=2
@@ -68,23 +56,31 @@ function codeof(preter, wordstr)
     return word
 end
 
-function _interpret(preter, wordstr)
-    if preter.mode == MODE_COMPILE && wordstr != ";"
-        if isnothing(preter.word_compiling)
-            preter.word_compiling = preter.dictionary[wordstr] = Word([])
-        else
-            code = codeof(preter, wordstr)
-            if isnothing(code)
-                return false
-            else
-                push!(preter.word_compiling.code, code)
-                return true
-            end
-        end
+function _compile(preter, wordstr)
+    if isnothing(preter.word_compiling)
+        preter.word_compiling = preter.dictionary[wordstr] = Word()
+        return true
     else
-        word = getword(preter, wordstr)
+        word = codeof(preter, wordstr)
         if isnothing(word)
-            return _interpret(preter.super, wordstr)
+            return false
+        elseif word isa Word && word.immediate
+            execute(preter, word)
+            return true
+        else
+            push!(preter.word_compiling.code, word)
+            return true
+        end
+    end
+end
+
+function _interpret(preter, wordstr)
+    word = codeof(preter, wordstr)
+    if preter.mode == MODE_COMPILE && (!(word isa Word) || !word.immediate)
+        return _compile(preter, wordstr)
+    else
+        if isnothing(word)
+            return printerr(preter.out, "$(wordstr)?")
         end
         execute(preter, word)
         return true
@@ -105,8 +101,8 @@ end
 
 execute(preter, num::Number) = push!(preter.stack, num)
 
-function _define(preter, word, definition)
-    preter.dictionary[word] = Word(definition)
+function _define(preter, word, definition, immediate = false)
+    preter.dictionary[word] = Word(definition, immediate)
     return preter
 end
 
@@ -121,7 +117,8 @@ function define_stdlib(machine)
     _define(machine, "/", gen_op_nn_n(/))
     _define(machine, ".", op_print)
     _define(machine, ":", op_colon)
-    _define(machine, ";", op_semicolon)
+    _define(machine, ";", op_semicolon, true)
+    _define(machine, "immediate", op_immediate, true)
     _define(machine, "dup", op_dup)
     _define(machine, "swap", op_swap)
 end
@@ -135,8 +132,15 @@ function gen_op_nn_n(operation)
 end
 
 op_print(machine) = print(machine.out, pop!(machine.stack))
-op_colon(machine) = machine.mode = MODE_COMPILE
 op_dup(machine) = push!(machine.stack, machine.stack[end])
+
+function op_colon(machine)
+    if machine.mode != MODE_INTERPRET
+        return what(machine.out)
+    end
+    machine.mode = MODE_COMPILE
+    machine.word_compiling = nothing
+end
 
 function op_swap(machine)
     top = machine.stack[end]
@@ -146,11 +150,16 @@ end
 
 function op_semicolon(machine)
     if machine.mode != MODE_COMPILE
-        what(machine.out)
-        return nothing
+        return what(machine.out)
     end
     machine.mode = MODE_INTERPRET
-    machine.word_compiling = nothing
+end
+
+function op_immediate(machine)
+    if machine.mode != MODE_INTERPRET || isnothing(machine.word_compiling)
+        return printerr(machine.out, "Invalid IMMEDIATE")
+    end
+    machine.word_compiling.immediate = true
 end
 
 function interpret(machine, sentence::String)

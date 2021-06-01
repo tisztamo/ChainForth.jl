@@ -39,3 +39,15 @@ end
     @test length(forth.stack) == 3
     @test forth.stack[end] == 5
 end
+
+@testset "Immediate words" begin
+    forth = interpreter()
+    interpret(forth, ": push5 5 ; immediate")    
+    interpret(forth, ": x 1 push5 3 ;")
+    @test length(forth.stack) == 1
+    @test forth.stack[1] == 5
+    interpret(forth, "x")
+    @test length(forth.stack) == 3
+    @test forth.stack[2] == 1
+    @test forth.stack[3] == 3
+end
