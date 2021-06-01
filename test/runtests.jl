@@ -11,14 +11,6 @@ function pushnums(forth)
     @test forth.stack[end] == 10
 end
 
-@testset "VM basics" begin
-    out = IOBuffer()
-    vm = VM(out)
-    interpret(vm, "asd")
-    @test String(take!(out)) == "?"
-    pushnums(vm)
-end
-
 @testset "Interpreter basics" begin
     forth = interpreter()
     pushnums(forth)
