@@ -11,15 +11,23 @@ function what(out)
     print(out, "?")
 end
 
-function interpret(parser::LiteralParser, word)
-    word == "" && return nothing
-    parsed = tryparse(Float64, word)
+function _interpret(parser::LiteralParser, wordstr)
+    wordstr == "" && return false
+    parsed = tryparse(Float64, wordstr)
     if isnothing(parsed)
         what(parser.out)
-        return nothing
+        return false
     end
     push!(parser.stack, parsed)
-    return nothing
+    return true
+end
+
+function codeof(parser::LiteralParser, wordstr) 
+    if _interpret(parser, wordstr)
+        return pop!(parser.stack)
+    else
+        return nothing
+    end
 end
 
 struct VM
@@ -34,62 +42,88 @@ struct VM
     end
 end
 
-@enum InterpreterMode MODE_INTERPRET=1 MODE_PUSH=2
+struct Word
+    code::Union{Function, Vector, Number}
+end
 
-mutable struct Interpreter
+@enum EngineMode MODE_INTERPRET=1 MODE_COMPILE=2
+
+mutable struct ForthEngine
     super::VM
     stack::Vector{Any}
     out::IO
-    dictionary::Dict
-    mode::InterpreterMode
-    Interpreter(vm) = new(vm, vm.stack, vm.out, Dict(), MODE_INTERPRET)
+    dictionary::Dict{String, Word}
+    mode::EngineMode
+    word_compiling::Union{Word, Nothing}
+    ForthEngine(vm) = new(vm, vm.stack, vm.out, Dict(), MODE_INTERPRET, nothing)
 end
 
-function interpret(preter, word)
-    if preter.mode == MODE_PUSH && word != ";"
-        push!(preter.stack, word)
-    else
-        definition = get(preter.dictionary, word, nothing)
-        if isnothing(definition)
-            interpret(preter.super, word)
+getword(preter, wordstr) = get(preter.dictionary, wordstr, nothing)
+
+function codeof(preter, wordstr)
+    word = getword(preter, wordstr)
+    if isnothing(word)
+        return codeof(preter.super, wordstr)
+    end
+    return word
+end
+
+function _interpret(preter, wordstr)
+    if preter.mode == MODE_COMPILE && wordstr != ";"
+        if isnothing(preter.word_compiling)
+            preter.word_compiling = preter.dictionary[wordstr] = Word([])
         else
-            execute(preter, definition)
+            code = codeof(preter, wordstr)
+            if isnothing(code)
+                return false
+            else
+                push!(preter.word_compiling.code, code)
+                return true
+            end
         end
-        return nothing
+    else
+        word = getword(preter, wordstr)
+        if isnothing(word)
+            return _interpret(preter.super, wordstr)
+        end
+        execute(preter, word)
+        return true
     end
 end
 
-function execute(preter, definition::Function)
-    definition(preter)
-    return nothing
-end
-
-function execute(preter, definition::Vector)
-    for word in definition
-        interpret(preter, word)
+function execute(preter, word::Word)
+    if word.code isa Function
+        word.code(preter)
+    elseif word.code isa Number
+        push!(preter.stack, word.code)
+    else
+        for word in word.code
+            execute(preter, word)
+        end
     end
-    return nothing
 end
 
-function define(preter, word, definition)
-    preter.dictionary[word] = definition
+execute(preter, num::Number) = push!(preter.stack, num)
+
+function _define(preter, word, definition)
+    preter.dictionary[word] = Word(definition)
     return preter
 end
 
 function interpreter(out = stdout)
-    return define_stdlib(Interpreter(VM(out)))
+    return define_stdlib(ForthEngine(VM(out)))
 end
 
 function define_stdlib(machine)
-    define(machine, "+", gen_op_nn_n(+))
-    define(machine, "-", gen_op_nn_n(-))
-    define(machine, "*", gen_op_nn_n(*))
-    define(machine, "/", gen_op_nn_n(/))
-    define(machine, ".", op_print)
-    define(machine, ":", op_colon)
-    define(machine, ";", op_semicolon)
-    define(machine, "dup", op_dup)
-    define(machine, "swap", op_swap)
+    _define(machine, "+", gen_op_nn_n(+))
+    _define(machine, "-", gen_op_nn_n(-))
+    _define(machine, "*", gen_op_nn_n(*))
+    _define(machine, "/", gen_op_nn_n(/))
+    _define(machine, ".", op_print)
+    _define(machine, ":", op_colon)
+    _define(machine, ";", op_semicolon)
+    _define(machine, "dup", op_dup)
+    _define(machine, "swap", op_swap)
 end
 
 function gen_op_nn_n(operation)
@@ -100,18 +134,9 @@ function gen_op_nn_n(operation)
     end
 end
 
-function op_print(machine)
-    print(machine.out, pop!(machine.stack))
-end
-
-function op_colon(machine)
-    machine.mode = MODE_PUSH
-    push!(machine.stack, ":")
-end
-
-function op_dup(machine)
-    push!(machine.stack, machine.stack[end])
-end
+op_print(machine) = print(machine.out, pop!(machine.stack))
+op_colon(machine) = machine.mode = MODE_COMPILE
+op_dup(machine) = push!(machine.stack, machine.stack[end])
 
 function op_swap(machine)
     top = machine.stack[end]
@@ -120,31 +145,25 @@ function op_swap(machine)
 end
 
 function op_semicolon(machine)
-    if machine.mode != MODE_PUSH
+    if machine.mode != MODE_COMPILE
         what(machine.out)
         return nothing
     end
     machine.mode = MODE_INTERPRET
-    definition = []
-    while true
-        word = pop!(machine.stack)
-        if word == ":"
-            define(machine, definition[1], definition[2:end])
-            return nothing
-        end
-        pushfirst!(definition, word)
-    end
+    machine.word_compiling = nothing
 end
 
-function execute(machine, sentence::String)
-    return execute(machine, split(sentence, ' '))
+function interpret(machine, sentence::String)
+    for wordstr in split(sentence, ' ')
+        _interpret(machine, wordstr)
+    end
 end
 
 function repl(machine = interpreter())
     print(machine.out, "Simple Forth:\n")
     while true
         try
-            execute(machine, readline())
+            interpret(machine, readline())
         catch e
             if e isa ArgumentError && e.msg == "array must be non-empty"
                 print(machine.out, "Stack underflow")
