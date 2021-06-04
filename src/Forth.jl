@@ -1,12 +1,12 @@
 module Forth
 
-export VM, interpreter, execute
+export interpreter, interpret
 
 struct LiteralParser end
 
-function codeof(::LiteralParser, wordstr)
+function parselit(wordstr)
     wordstr == "" && return false
-    parsed = tryparse(Float64, wordstr)
+    parsed = tryparse(Int64, wordstr)
     if isnothing(parsed)
         return nothing
     end
@@ -15,18 +15,6 @@ end
 
 printerr(out, err) = return print(out, err)
 what(out) = return printerr(out, "?")
-
-struct VM
-    super::LiteralParser
-    stack::Vector{Any}
-    dictionary::Dict{String, Function}
-    out::IO
-    mode::Nothing
-    VM(out = stdout) = begin
-        stack = []
-        return new(LiteralParser(), stack, Dict(), out, nothing)
-    end
-end
 
 mutable struct Word
     code::Union{Function, Vector, Number}
@@ -37,90 +25,104 @@ end
 @enum EngineMode MODE_INTERPRET=1 MODE_COMPILE=2
 
 mutable struct ForthEngine
-    super::VM
     stack::Vector{Any}
     out::IO
     dictionary::Dict{String, Word}
     mode::EngineMode
-    word_compiling::Union{Word, Nothing}
-    ForthEngine(vm) = new(vm, vm.stack, vm.out, Dict(), MODE_INTERPRET, nothing)
+    latest::Union{Word, Nothing}
+    ForthEngine(out) = new([], out, Dict(), MODE_INTERPRET, nothing)
 end
 
-getword(preter, wordstr) = get(preter.dictionary, wordstr, nothing)
+getword(engine, wordstr) = get(engine.dictionary, wordstr, nothing)
 
-function codeof(preter, wordstr)
-    word = getword(preter, wordstr)
+function codeof(engine, wordstr)
+    word = getword(engine, wordstr)
     if isnothing(word)
-        return codeof(preter.super, wordstr)
+        return parselit(wordstr)
     end
     return word
 end
 
-function _compile(preter, wordstr)
-    if isnothing(preter.word_compiling)
-        preter.word_compiling = preter.dictionary[wordstr] = Word()
+function _compile(engine, wordstr)
+    if isnothing(engine.latest)
+        engine.latest = engine.dictionary[wordstr] = Word()
         return true
     else
-        word = codeof(preter, wordstr)
+        word = codeof(engine, wordstr)
         if isnothing(word)
             return false
         elseif word isa Word && word.immediate
-            execute(preter, word)
+            execute_codeword(engine, word) # ???? branching?
             return true
         else
-            push!(preter.word_compiling.code, word)
+            push!(engine.latest.code, word)
             return true
         end
     end
 end
 
-function _interpret(preter, wordstr)
-    word = codeof(preter, wordstr)
-    if preter.mode == MODE_COMPILE && (!(word isa Word) || !word.immediate)
-        return _compile(preter, wordstr)
+function _interpret(engine, wordstr)
+    word = codeof(engine, wordstr)
+    if engine.mode == MODE_COMPILE && (!(word isa Word) || !word.immediate)
+        return _compile(engine, wordstr)
     else
         if isnothing(word)
-            return printerr(preter.out, "$(wordstr)?")
+            return printerr(engine.out, "$(wordstr)?")
         end
-        execute(preter, word)
+        execute_codeword(engine, word) # No branching during interpretation
         return true
     end
 end
 
-function execute(preter, word::Word)
+# Execute the word either by dispatching to its Julia function if its a native word,
+# or by recursively codeword-ing its compiled definition. (The "inner interpreter")
+function execute_codeword(engine, word::Word)
     if word.code isa Function
-        word.code(preter)
+        return word.code(engine)
     elseif word.code isa Number
-        push!(preter.stack, word.code)
+        push!(engine.stack, word.code)
+        return 1
     else
-        for word in word.code
-            execute(preter, word)
+        idx = 1 # DOCOL
+        codelength = length(word.code)
+        while idx <= codelength
+            idx += execute_codeword(engine, word.code[idx])
         end
+        return 1
     end
 end
 
-execute(preter, num::Number) = push!(preter.stack, num)
+function execute_codeword(engine, num::Number) 
+    push!(engine.stack, num)
+    return 1
+end
 
-function _define(preter, word, definition, immediate = false)
-    preter.dictionary[word] = Word(definition, immediate)
-    return preter
+function define(engine, word, definition, immediate = false)
+    engine.dictionary[word] = Word(definition, immediate)
+    return engine
 end
 
 function interpreter(out = stdout)
-    return define_stdlib(ForthEngine(VM(out)))
+    return define_stdlib(ForthEngine(out))
 end
 
 function define_stdlib(machine)
-    _define(machine, "+", gen_op_nn_n(+))
-    _define(machine, "-", gen_op_nn_n(-))
-    _define(machine, "*", gen_op_nn_n(*))
-    _define(machine, "/", gen_op_nn_n(/))
-    _define(machine, ".", op_print)
-    _define(machine, ":", op_colon)
-    _define(machine, ";", op_semicolon, true)
-    _define(machine, "immediate", op_immediate, true)
-    _define(machine, "dup", op_dup)
-    _define(machine, "swap", op_swap)
+    define(machine, "+", gen_op_nn_n(+))
+    define(machine, "-", gen_op_nn_n(-))
+    define(machine, "*", gen_op_nn_n(*))
+    define(machine, "/", gen_op_nn_n(/))
+    define(machine, ".", op_print)
+    define(machine, ":", op_colon)
+    define(machine, ";", op_semicolon, true)
+    define(machine, "immediate", op_immediate, true)
+    define(machine, "dup", op_dup)
+    define(machine, "swap", op_swap)
+    define(machine, "drop", op_drop)
+    define(machine, "2drop", op_2drop)
+    define(machine, "over", op_over)
+    define(machine, "rot", op_rot)
+    define(machine, "-rot", op_nrot)
+    define(machine, "?branch", op_qbranch)
 end
 
 function gen_op_nn_n(operation)
@@ -128,24 +130,70 @@ function gen_op_nn_n(operation)
         arg1 = pop!(machine.stack)
         arg2 = pop!(machine.stack)
         push!(machine.stack, operation(arg1, arg2))
+        return 1
     end
 end
 
-op_print(machine) = print(machine.out, pop!(machine.stack))
-op_dup(machine) = push!(machine.stack, machine.stack[end])
+function op_print(machine) 
+    print(machine.out, pop!(machine.stack))
+    return 1
+end
 
-function op_colon(machine)
-    if machine.mode != MODE_INTERPRET
-        return what(machine.out)
-    end
-    machine.mode = MODE_COMPILE
-    machine.word_compiling = nothing
+function op_dup(machine)
+    push!(machine.stack, machine.stack[end])
+    return 1
 end
 
 function op_swap(machine)
     top = machine.stack[end]
     machine.stack[end] = machine.stack[end-1]
     machine.stack[end-1] = top
+    return 1
+end
+
+function op_drop(machine)
+    pop!(machine.stack)
+    return 1
+end
+
+function op_2drop(machine)
+    pop!(machine.stack)
+    pop!(machine.stack)
+    return 1
+end
+
+function op_over(machine)
+    push!(machine.stack, machine.stack[end-1])
+    return 1
+end
+
+function op_rot(machine)
+    t1 = pop!(machine.stack)
+    t2 = pop!(machine.stack)
+    t3 = pop!(machine.stack)
+    push!(machine.stack, t2)
+    push!(machine.stack, t1)
+    push!(machine.stack, t3)
+    return 1
+end
+
+function op_nrot(machine)
+    c = pop!(machine.stack)
+    b = pop!(machine.stack)
+    a = pop!(machine.stack)
+    push!(machine.stack, c)
+    push!(machine.stack, a)
+    push!(machine.stack, b)
+    return 1
+end
+
+function op_colon(machine)
+    if machine.mode != MODE_INTERPRET
+        return what(machine.out)
+    end
+    machine.mode = MODE_COMPILE
+    machine.latest = nothing
+    return 1
 end
 
 function op_semicolon(machine)
@@ -153,13 +201,22 @@ function op_semicolon(machine)
         return what(machine.out)
     end
     machine.mode = MODE_INTERPRET
+    return 1
 end
 
 function op_immediate(machine)
-    if machine.mode != MODE_INTERPRET || isnothing(machine.word_compiling)
+    if machine.mode != MODE_INTERPRET || isnothing(machine.latest)
         return printerr(machine.out, "Invalid IMMEDIATE")
     end
-    machine.word_compiling.immediate = true
+    machine.latest.immediate = true
+    return 1
+end
+
+function op_qbranch(machine)
+    if pop!(machine.stack) == 0
+        return 1
+    end
+    return 2 #?
 end
 
 function interpret(machine, sentence::String)
