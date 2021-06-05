@@ -17,7 +17,7 @@ end
     @test forth.stack[end] == 31
 
     out = IOBuffer()
-    forth = interpreter(out)
+    forth = interpreter(stdin, out)
     interpret(forth, "5 6 +")
     @test forth.stack[end] == 11
 
