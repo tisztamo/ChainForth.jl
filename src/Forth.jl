@@ -2,7 +2,7 @@
 
 module Forth
 
-export interpreter, interpret
+export interpreter, interpret, ForthEngine
 
 const VERSION = "0 dev"
 
@@ -70,7 +70,7 @@ function _interpret(engine, wordstr)
 end
 
 # Execute the word either by dispatching to its Julia function if its a native word,
-# or by recursively codeword-ing its compiled definition. (The "inner interpreter")
+# or by recursively executing its compiled definition. (The "inner interpreter")
 function execute_codeword(engine, word::ExecutionToken, parent = nothing, myidx = 0)
     if word.code isa Function
         return word.code(engine, parent, myidx)
@@ -297,9 +297,11 @@ function interpret(machine, sentence::String)
     end
 end
 
-function repl(engine = interpreter())
-    print(engine.out, "Forth.jl v\"$VERSION\":\n")
-    while true
+function repl(engine = interpreter(); silent = false)
+    if !silent
+        print(engine.out, "Forth.jl v\"$VERSION\":\n")
+    end
+    while !eof(engine.input)
         try
             (w, eol) = word(engine.input)
             if w == "exit"
@@ -316,9 +318,11 @@ function repl(engine = interpreter())
                 return
             else
                 println(engine.out)
-                for (exc, bt) in Base.catch_stack()
-                    showerror(engine.out, exc, bt)
-                    println(engine.out)
+                if !silent
+                    for (exc, bt) in Base.catch_stack()
+                        showerror(engine.out, exc, bt)
+                        println(engine.out)
+                    end
                 end
             end
         end
