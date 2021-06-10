@@ -299,7 +299,7 @@ end
 
 function repl(engine = interpreter(); silent = false)
     if !silent
-        print(engine.out, "Forth.jl v\"$VERSION\":\n")
+        print(engine.out, "ChainForth.jl v\"$VERSION\":\n")
     end
     while !eof(engine.input)
         try

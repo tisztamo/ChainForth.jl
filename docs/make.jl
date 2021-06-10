@@ -4,7 +4,7 @@ makedocs(
     modules = [Forth],
     format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"),
     authors = "Schäffer Krisztián",
-    sitename = "Forth.jl",
+    sitename = "ChainForth.jl",
     pages = Any["index.md"]
     # strict = true,
     # clean = true,
@@ -12,6 +12,6 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/tisztamo/Forth.jl.git",
+    repo = "github.com/tisztamo/ChainForth.jl.git",
     push_preview = true
 )
