@@ -1,3 +1,13 @@
+function define_stackops(machine)
+    define(machine, "dup",      op_dup)
+    define(machine, "swap",     op_swap)
+    define(machine, "drop",     op_drop)
+    define(machine, "2drop",    op_2drop)
+    define(machine, "over",     op_over)
+    define(machine, "rot",      op_rot)
+    define(machine, "-rot",     op_nrot)
+end
+
 function op_dup(machine, parent, myidx)
     push!(machine.stack, machine.stack[end])
     return 1
