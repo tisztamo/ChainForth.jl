@@ -1,4 +1,4 @@
-function define_artihmetic(machine)
+function define_arithmetic(machine)
     define(machine, "+",        gen_op_nn_n(+))
     define(machine, "-",        gen_op_nn_n(-))
     define(machine, "*",        gen_op_nn_n(*))

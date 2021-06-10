@@ -14,6 +14,7 @@ mutable struct ExecutionToken
 end
 
 Base.show(io::IO, w::ExecutionToken) = print(io, w.name)
+
 @enum EngineMode MODE_INTERPRET=1 MODE_COMPILE=2
 
 mutable struct ForthEngine
@@ -50,16 +51,19 @@ include("arithmetic.jl")
 include("compile.jl")
 include("control.jl")
 
-function define_stdlib(machine)
+function define_env(machine)
     define_stackops(machine)
-    define_artihmetic(machine)
+    define_arithmetic(machine)
     define_controlstructures(machine)
     define_compiler(machine)
+end
 
-    # redirecting input and interpret 
+function define_stdlib(machine)
+    define_env(machine)
+    # redirect input and interpret 
     oldin = machine.input
     machine.input = IOBuffer(
-        op_ifthenelse # control.jl
+        op_ifthenelse # control.jl TODO: separate the standard lib
     )
     while !eof(machine.input)
         (w, eol) = word(machine.input)
