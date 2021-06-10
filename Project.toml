@@ -1,4 +1,4 @@
-name = "Forth"
+name = "ChainForth"
 uuid = "5e0eca46-5516-4b42-8bdb-e2489174fddb"
 authors = ["Schäffer Krisztián <schaffer.krisztian@gmail.com>"]
 version = "0.1.0"
