@@ -1,4 +1,4 @@
-using Forth
+using ChainForth
 using Test
 
 function pushnums(forth)

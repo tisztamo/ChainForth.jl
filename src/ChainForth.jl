@@ -1,6 +1,6 @@
 # Conquer with words
 
-module Forth
+module ChainForth
 
 export interpreter, interpret, ForthEngine
 
