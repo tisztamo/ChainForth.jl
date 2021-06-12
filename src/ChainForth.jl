@@ -6,7 +6,7 @@ export interpreter, interpret, ForthEngine
 
 const VERSION = "0 dev"
 
-mutable struct ExecutionToken
+mutable struct ExecutionToken # todo immutable
     code::Union{Function, Vector, Number}
     immediate::Bool
     name::String
@@ -21,10 +21,12 @@ mutable struct ForthEngine
     input::IO
     out::IO
     stack::Vector{Any}
+    memory::Vector{Any} # data-space, linear memory. Words are currently not defined here
+    here::Int # "data-space pointer" 
     dictionary::Dict{String, ExecutionToken}
     mode::EngineMode
     latest::Union{ExecutionToken, Nothing}
-    ForthEngine(input, output) = new(input, output, [], Dict(), MODE_INTERPRET, nothing)
+    ForthEngine(input, output) = new(input, output, [], [], 0, Dict(), MODE_INTERPRET, nothing)
 end
 
 getword(engine, wordstr) = get(engine.dictionary, wordstr, nothing)
@@ -50,26 +52,22 @@ include("stackops.jl")
 include("arithmetic.jl")
 include("compile.jl")
 include("control.jl")
+include("memory.jl")
 
 function define_env(machine)
     define_stackops(machine)
     define_arithmetic(machine)
     define_controlstructures(machine)
     define_compiler(machine)
+    define_memory(machine)
 end
 
 function define_stdlib(machine)
     define_env(machine)
-    # redirect input and interpret 
-    oldin = machine.input
-    machine.input = IOBuffer(
-        op_ifthenelse # control.jl TODO: separate the standard lib
+    interpret(machine, 
+        op_ifthenelse * # control.jl TODO: separate the standard lib
+        op_memory
     )
-    while !eof(machine.input)
-        (w, eol) = word(machine.input)
-        _interpret(machine, w)
-    end
-    machine.input = oldin
     return machine
 end
 

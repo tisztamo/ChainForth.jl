@@ -1,5 +1,6 @@
 
 function _interpret(engine, wordstr)
+    isnothing(wordstr) || wordstr == "" && return true
     word = codeof(engine, wordstr)
     if engine.mode == MODE_COMPILE && (!(word isa ExecutionToken) || !word.immediate)
         return _compile(engine, wordstr)
@@ -16,14 +17,20 @@ end
 # Execute the word either by dispatching to its Julia function if its a native word,
 # or by recursively executing its compiled definition. (The "inner interpreter")
 function execute_codeword(engine, word::ExecutionToken, parent = nothing, myidx = 0)
-    if word.code isa Function
-        return word.code(engine, parent, myidx)
-    elseif word.code isa Number
-        push!(engine.stack, word.code)
+    code = word.code
+    if code === op_swap # Fast, type.stabilized routes for a few words
+        return code(engine, parent, myidx)
+    elseif code === op_dup
+        return code(engine, parent, myidx)
+    elseif code === op_drop
+        return code(engine, parent, myidx)
+    elseif code isa Function
+        return code(engine, parent, myidx)
+    elseif code isa Number
+        push!(engine.stack, code)
         return 1
     else
         idx = 1 # DOCOL
-        code = word.code
         codelength = length(code)
         while idx > 0 && idx <= codelength
             idx += execute_codeword(engine, code[idx], word, idx)
@@ -41,22 +48,26 @@ end
 function word(io)
     buf = Char[]
     chr = ' '
-    while isspace(chr)
+    while isspace(chr) && !eof(io)
         chr = read(io, Char)
     end
     while true
         if isspace(chr)
-            return (String(buf), chr == '\n')
+            return (String(buf), chr == '\n' || eof(io))
         end
         push!(buf, chr)
-        chr = read(io, Char)
+        chr = eof(io) ? '\n' : read(io, Char)
     end
 end
 
 function interpret(machine, sentence::String)
-    for wordstr in split(sentence, ' ')
-        _interpret(machine, wordstr)
+    oldinput = machine.input
+    machine.input = IOBuffer(sentence)
+    while !eof(machine.input)
+        (w, eol) = word(machine.input)
+        _interpret(machine, w)
     end
+    machine.input = oldinput    
 end
 
 function repl(engine = interpreter(); silent = false)

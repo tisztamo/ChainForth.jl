@@ -1,4 +1,5 @@
 function define_compiler(machine)
+    define(machine, "create",   op_create)
     define(machine, ":",        op_colon)
     define(machine, ";",        op_semicolon,   true)
     define(machine, ",",        op_comma,       true)
@@ -9,28 +10,29 @@ function define_compiler(machine)
     define(machine, "see",      op_see)
     define(machine, "postpone", op_postpone,    true)
     define(machine, "postponed", op_postponed,  true)
-    define(machine, "mark",     op_mark,        true) # non-std ( -- i ) Push the current index in the compiled definition
-    define(machine, "slot",     op_slot,        true) # non-std ( -- ) Add a slot to the compiled definition to fill later
-    define(machine, "store",    op_store,       true) # non-std ( i v -- ) Store a value in the current definition at i
+    define(machine, "mark",     op_mark,        true) # non-std ( -- i ) Push the current index in the just compiled definition
+    define(machine, "slot",     op_slot,        true) # non-std ( -- ) Add a slot to the just compiled definition to fill later
+    define(machine, "store",    op_store,       true) # non-std ( i v -- ) Store a value in the just compiled definition at i
 end
 
 function _compile(engine, wordstr)
-    if isnothing(engine.latest)
-        engine.latest = engine.dictionary[wordstr] = ExecutionToken(wordstr)
+    word = codeof(engine, wordstr)
+    if isnothing(word)
+        print(engine.out, "$(wordstr)?\n")
+        return false
+    elseif word isa ExecutionToken && word.immediate
+        execute_codeword(engine, word) # ???? branching?
         return true
     else
-        word = codeof(engine, wordstr)
-        if isnothing(word)
-            print(engine.out, "$(wordstr)?\n")
-            return false
-        elseif word isa ExecutionToken && word.immediate
-            execute_codeword(engine, word) # ???? branching?
-            return true
-        else
-            push!(engine.latest.code, word)
-            return true
-        end
+        push!(engine.latest.code, word)
+        return true
     end
+end
+
+function op_create(machine, parent, myidx)
+    wordstr = word(machine.input)[1]
+    machine.latest = machine.dictionary[wordstr] = ExecutionToken(wordstr)
+    return 1
 end
 
 function op_colon(machine, parent, myidx)
@@ -38,8 +40,7 @@ function op_colon(machine, parent, myidx)
         return print(machine.out, "Colon is only allowed while interpreting.")
     end
     machine.mode = MODE_COMPILE
-    machine.latest = nothing
-    return 1
+    return op_create(machine, parent, myidx)
 end
 
 function op_semicolon(machine, parent, myidx)
