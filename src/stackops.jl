@@ -6,6 +6,7 @@ function define_stackops(machine)
     define(machine, "over",     op_over)
     define(machine, "rot",      op_rot)
     define(machine, "-rot",     op_nrot)
+    define(machine, "depth",    op_depth)
 end
 
 function op_dup(machine, parent, myidx)
@@ -53,5 +54,10 @@ function op_nrot(machine, parent, myidx)
     push!(machine.stack, c)
     push!(machine.stack, a)
     push!(machine.stack, b)
+    return 1
+end
+
+function op_depth(machine, parent, myidx)
+    push!(machine.stack, size(machine.stack))
     return 1
 end
