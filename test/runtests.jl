@@ -12,7 +12,7 @@ end
 @testset "Interpreter basics" begin
     forth = interpreter()
     pushnums(forth)
-    interpret(forth, "+")
+    interpret(forth, "+ \n")
     @test length(forth.stack) == 1
     @test forth.stack[end] == 31
 
@@ -71,4 +71,23 @@ end
     @test forth.stack[end] == 1
     @test forth.stack[end-1] == 9
     @test forth.stack[end-2] == 2
+end
+
+@testset "Memory Allocation" begin
+    forth = interpreter()
+    interpret(forth, "5 allot here")
+    @test forth.stack == [1]
+    interpret(forth, "3 allot here")
+    @test forth.stack == [1, 6]
+    interpret(forth, "100 allot here")
+    @test forth.stack == [1, 6, 9]
+    @test length(forth.memory) == 108
+
+    interpret(forth, "12 ! 13 !")
+    @test forth.memory[9] == 13
+    @test forth.stack == [1, 6, 9]
+    interpret(forth, "@")
+    @test forth.stack == [1, 6, 9, 13]
+
+
 end
