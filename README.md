@@ -15,7 +15,7 @@
 
 ChainForth.jl is an embedded virtual machine that helps you provide a highly secure but programmable, Turing-complete API layer at the edge of your Julia projects.
 
-## What isa programmable API?
+## What is a programmable API?
 
 A Programmable API is an interface that allows
 efficient communication across incompatible programming environments by providing a common language that the parties use to script each other.
@@ -24,16 +24,7 @@ Imagine a simple (frontend\_client, backend\_server) pair with the twist that in
 
 The scripts communicate with an embedded interface provided by the server, and run their logic on the received data instead of just forwarding it to the client.
 
-This separation allows the server to provide a lower-level API, thus instead of defining a high-level, rigid API endpoint structure, it exports small building blocks that the client can use to build its own (query) language.
-
-At the extreme, the server can minimize its interface down to a random access storage, leaving questions like
-memory allocation, file system, redundancy, etc. to the script. Memory-mapped devices connect the script to
-external resources, business data and server internals. A virtual machine.
-
-The ChainForth language is the assembly of this VM. It is so succint that a great runtime with Python-like runtime dynamism
-and an sql engine can be written in 8 KiloBytes, leaving room for user code and still fit the whole transaction into an UDP packet.
-
-ChainForth.jl aims to be a ChainForth system that runs those embedded runtimes with surprising speed.
+This separation allows the server to provide a lower-level API. Instead of defining a rigid API endpoint structure, it exports small building blocks that the client can use to build its own (query) language.
 
 
 ## Why not just simply program the API in Julia?
