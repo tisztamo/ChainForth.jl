@@ -26,18 +26,17 @@ function op_here(machine, parent, myidx)
 end
 
 function op_at(machine, parent, myidx)
-    push!(machine.stack, machine.memory[@show machine.here])
+    push!(machine.stack, machine.memory[pop!(machine.stack)])
     return 1
 end
 
 function op_exclamation(machine, parent, myidx)
-    machine.memory[machine.here] = pop!(machine.stack)
+    addr =  pop!(machine.stack)
+    machine.memory[addr] = pop!(machine.stack)
     return 1
 end
 
 const op_memory =
 """
-: variable immediate
-    1 allot
-;
+: variable immediate ' create , 1 allot ' here , ' , , ;
 """

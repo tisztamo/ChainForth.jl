@@ -63,11 +63,16 @@ end
 function interpret(machine, sentence::String)
     oldinput = machine.input
     machine.input = IOBuffer(sentence)
-    while !eof(machine.input)
-        (w, eol) = word(machine.input)
-        _interpret(machine, w)
+    try
+        ok = true
+        while !eof(machine.input) && ok
+            (w, eol) = word(machine.input)
+            ok = _interpret(machine, w)
+        end
+        return ok
+    finally
+        machine.input = oldinput
     end
-    machine.input = oldinput    
 end
 
 function repl(engine = interpreter(); silent = false)
@@ -76,12 +81,12 @@ function repl(engine = interpreter(); silent = false)
     end
     while !eof(engine.input)
         try
-            (w, eol) = word(engine.input)
-            if w == "exit"
+            sentence = readline(stdin)
+            if sentence == "exit"
                 return
             end
-            ok = _interpret(engine, w)
-            if (eol || eof(engine.input)) && ok
+            ok = interpret(engine, sentence)
+            if ok && !silent
                 println(engine.out, " ok")
             end
         catch e

@@ -79,7 +79,7 @@ end
 
 function op_see(machine, parent, myidx)
     what = codeof(machine, word(machine.input)[1])
-    println(machine.out, join(what.code, ' ') * (what.immediate ? " ; immediate" : ""))
+    println(machine.out, ": $(what.name) " * join(what.code, ' ') * (what.immediate ? " ; immediate" : " ;"))
 end
 
 function op_postpone(machine, parent, myidx)

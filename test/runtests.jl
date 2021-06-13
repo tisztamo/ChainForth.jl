@@ -83,11 +83,25 @@ end
     @test forth.stack == [1, 6, 9]
     @test length(forth.memory) == 108
 
-    interpret(forth, "12 ! 13 !")
-    @test forth.memory[9] == 13
+    interpret(forth, "12 5 ! 13 8 !")
+    @test forth.memory[5] == 12
+    @test forth.memory[8] == 13
     @test forth.stack == [1, 6, 9]
-    interpret(forth, "@")
-    @test forth.stack == [1, 6, 9, 13]
+    interpret(forth, "5 @ 8 @ 5 @")
+    @test forth.stack == [1, 6, 9, 12, 13, 12]
+end
 
-
+@testset "Variables" begin
+    forth = interpreter()
+    interpret(forth, "variable x")    
+    interpret(forth, "variable y")
+    interpret(forth, "variable zuzu")
+    @test forth.stack == []
+    interpret(forth, "9 zuzu !")
+    @test forth.stack == []
+    interpret(forth, "zuzu @")
+    @test forth.stack == [9]
+    interpret(forth, "drop 8 x ! 7 y !")
+    interpret(forth, "x @ y @ zuzu @")
+    @test forth.stack == [8, 7, 9]
 end
