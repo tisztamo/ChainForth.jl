@@ -15,7 +15,7 @@ end
 
 Base.show(io::IO, w::ExecutionToken) = print(io, w.name)
 
-@enum EngineMode MODE_INTERPRET=1 MODE_COMPILE=2
+@enum EngineMode::Int8 MODE_INTERPRET=0 MODE_COMPILE=-1
 
 mutable struct ForthEngine
     input::IO

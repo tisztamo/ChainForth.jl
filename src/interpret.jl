@@ -46,7 +46,7 @@ function word(io)
     end
     while true
         if isspace(chr)
-            return (String(buf), chr == '\n')
+            return (String(buf), chr == '\n' || chr == '\r')
         end
         push!(buf, chr)
         chr = read(io, Char)
@@ -70,7 +70,7 @@ function repl(engine = interpreter(); silent = false)
                 return
             end
             ok = _interpret(engine, w)
-            if eol && ok
+            if (eol || eof(engine.input)) && ok
                 println(engine.out, " ok")
             end
         catch e

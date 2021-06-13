@@ -58,6 +58,6 @@ function op_nrot(machine, parent, myidx)
 end
 
 function op_depth(machine, parent, myidx)
-    push!(machine.stack, size(machine.stack))
+    push!(machine.stack, length(machine.stack))
     return 1
 end
