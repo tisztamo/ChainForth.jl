@@ -53,6 +53,7 @@ include("arithmetic.jl")
 include("compile.jl")
 include("control.jl")
 include("memory.jl")
+include("time.jl")
 
 function define_env(machine)
     define_stackops(machine)
@@ -60,13 +61,15 @@ function define_env(machine)
     define_controlstructures(machine)
     define_compiler(machine)
     define_memory(machine)
+    define_time(machine)
 end
 
 function define_stdlib(machine)
     define_env(machine)
     interpret(machine, 
         op_ifthenelse * # control.jl TODO: separate the standard lib
-        op_memory
+        op_memory *
+        op_time
     )
     return machine
 end

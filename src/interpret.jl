@@ -60,7 +60,7 @@ function word(io)
     end
 end
 
-function interpret(machine, sentence::String)
+function interpret(machine, sentence)
     oldinput = machine.input
     machine.input = IOBuffer(sentence)
     try
@@ -93,7 +93,7 @@ function repl(engine = interpreter(); silent = false)
             if e isa ArgumentError && e.msg == "array must be non-empty"
                 println(engine.out, " Stack underflow")
             elseif e isa InterruptException
-                return
+                return nothing
             else
                 println(engine.out)
                 if !silent

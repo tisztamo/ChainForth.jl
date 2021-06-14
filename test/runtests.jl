@@ -95,13 +95,21 @@ end
     forth = interpreter()
     interpret(forth, "variable x")    
     interpret(forth, "variable y")
-    interpret(forth, "variable zuzu")
+    interpret(forth, "variable zuzu1234567890")
     @test forth.stack == []
-    interpret(forth, "9 zuzu !")
+    interpret(forth, "9 zuzu1234567890 !")
     @test forth.stack == []
-    interpret(forth, "zuzu @")
+    interpret(forth, "zuzu1234567890 @")
     @test forth.stack == [9]
     interpret(forth, "drop 8 x ! 7 y !")
-    interpret(forth, "x @ y @ zuzu @")
+    interpret(forth, "x @ y @ zuzu1234567890 @")
     @test forth.stack == [8, 7, 9]
+end
+
+@testset "Execute" begin
+    forth = interpreter()
+    interpret(forth, ": GT1 123 ;")
+    interpret(forth, ": GT2 ' ' , ;")
+    interpret(forth, "GT2 GT1 execute")
+    @test forth.stack == [123]
 end
