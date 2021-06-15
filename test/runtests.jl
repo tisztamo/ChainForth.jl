@@ -113,3 +113,16 @@ end
     interpret(forth, "GT2 GT1 execute")
     @test forth.stack == [123]
 end
+
+@testset "if. then, else" begin
+    forth = interpreter()
+    interpret(forth, ": t1 5 < if 11 else 22 then ;")
+    interpret(forth, "4 t1 5 t1 6 t1")
+    @test forth.stack == [11, 22, 22]
+    interpret(forth, "drop drop drop")
+
+    interpret(forth, ": t2 dup 5 < if drop 11 else 8 < if 22 else 33 then then ;")
+    interpret(forth, "see t2")
+    interpret(forth, "4 t2 6 t2 9 t2")
+    @test forth.stack == [11, 22, 33]
+end

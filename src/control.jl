@@ -31,6 +31,7 @@ const op_ifthenelse = """
 : then immediate
     ' dup ,
     ' mark ,
+    ' swap ,
     ' - ,
     ' 2 ,
     ' + ,
