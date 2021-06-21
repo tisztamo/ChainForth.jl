@@ -49,4 +49,6 @@ ChainForth.jl v"0 dev":
 12 ok
 ```
 
-Please read the source and the tests for more info.
+[ProgrammableAPI.jl](https://github.com/tisztamo/ProgrammableAPI.jl) is a way to integrate this into your project.
+
+Please read the source and the tests for more info. 
